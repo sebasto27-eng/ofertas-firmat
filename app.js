@@ -339,7 +339,11 @@
   }
   $("#pickBtn").onclick = function () { setPicking(true); };
   $("#hereBtn").onclick = function () {
-    geolocate(function (ll) { setPickMarker(ll); map.flyTo(ll, 18); toast("Ubicación del local marcada"); });
+    geolocate(function (ll, acc) {
+      if (distM(ll, CENTRO) > LEJOS_DE_FIRMAT) { toast("Tu ubicación aparece lejos de Firmat. Marcá el local tocando el mapa."); setPicking(true); return; }
+      if (acc > 100) { toast("La ubicación es poco precisa (±" + fmtPrec(acc) + "). Ajustá el pin arrastrándolo hasta la puerta del local."); map.flyTo(ll, 17); setPickMarker(ll); return; }
+      setPickMarker(ll); map.flyTo(ll, 18); toast("Ubicación del local marcada (±" + fmtPrec(acc) + "). Podés arrastrar el pin para ajustarla.");
+    }, { goal: 20, wait: 12000 });
   };
   map.on("click", function (e) {
     if (!st.picking) return;
@@ -409,19 +413,47 @@
   });
 
   // ---------- ubicación del usuario ----------
-  function geolocate(cb) {
+  // Escucha el GPS unos segundos y se queda con la lectura más precisa.
+  // cb(ll, precisionEnMetros). Sin GPS (computadoras) el navegador adivina por internet y puede errar por kilómetros.
+  var LEJOS_DE_FIRMAT = 25000; // metros
+  function geolocate(cb, opts) {
+    opts = opts || {};
     if (!navigator.geolocation) { toast("Tu navegador no permite compartir la ubicación"); return; }
-    navigator.geolocation.getCurrentPosition(function (p) { cb([p.coords.latitude, p.coords.longitude]); },
-      function () { toast("No se pudo obtener tu ubicación. Revisá los permisos del navegador."); },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+    var bestPos = null, done = false, goal = opts.goal || 30, wait = opts.wait || 8000;
+    toast("Buscando tu ubicación…");
+    function finish() {
+      if (done) return; done = true;
+      navigator.geolocation.clearWatch(id); clearTimeout(timer);
+      if (bestPos) cb([bestPos.coords.latitude, bestPos.coords.longitude], Math.round(bestPos.coords.accuracy));
+      else toast("No se pudo obtener tu ubicación. Revisá que el GPS esté prendido y que el navegador tenga permiso.");
+    }
+    var id = navigator.geolocation.watchPosition(function (p) {
+      if (!bestPos || p.coords.accuracy < bestPos.coords.accuracy) bestPos = p;
+      if (p.coords.accuracy <= goal) finish();
+    }, function (err) {
+      if (err.code === 1) { done = true; navigator.geolocation.clearWatch(id); clearTimeout(timer);
+        toast("Diste que no a la ubicación. Podés activarla desde el candado de la barra de direcciones."); }
+      else finish();
+    }, { enableHighAccuracy: true, timeout: wait, maximumAge: 0 });
+    var timer = setTimeout(finish, wait);
   }
+  function fmtPrec(m) { return m < 1000 ? m + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km"; }
+  var meCircle = null;
   $("#locate").onclick = function () {
-    geolocate(function (ll) {
+    geolocate(function (ll, acc) {
+      var lejos = distM(ll, CENTRO);
+      if (lejos > LEJOS_DE_FIRMAT) {
+        toast("Tu ubicación aparece a " + fmtDist(lejos) + " de Firmat" + (acc > 1000 ? " (es aproximada: tu equipo no tiene GPS)" : "") + ". Te dejo el mapa en Firmat.");
+        return;
+      }
       st.me = ll;
       if (meMarker) meMarker.setLatLng(ll);
       else meMarker = L.marker(ll, { interactive: false, zIndexOffset: 2000,
         icon: L.divIcon({ className: "", html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map);
-      map.flyTo(ll, 16, { duration: 0.8 });
+      if (meCircle) meCircle.setLatLng(ll).setRadius(acc);
+      else meCircle = L.circle(ll, { radius: acc, color: "#1f56d1", weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
+      if (acc > 300) { map.flyToBounds(meCircle.getBounds(), { duration: 0.8, maxZoom: 16 }); toast("Ubicación aproximada (±" + fmtPrec(acc) + "). Con GPS prendido es más exacta."); }
+      else { map.flyTo(ll, 17, { duration: 0.8 }); toast("Estás acá (±" + fmtPrec(acc) + ")"); }
       st.sort = "dist"; $("#sort").value = "dist"; render();
     });
   };
