@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ofertas Firmat</title>
+<meta name="description" content="Mapa de descuentos y promociones de los comercios de Firmat, Santa Fe.">
+<meta name="theme-color" content="#ffd23f">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='52' height='52' rx='12' fill='%23ffd23f' stroke='%2316202b' stroke-width='5'/%3E%3Ctext x='32' y='44' font-size='32' font-family='Arial' font-weight='900' text-anchor='middle' fill='%2316202b'%3E%25%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="panel" id="panel">
+    <div class="head">
+      <button class="grip" id="grip" aria-label="Mostrar u ocultar la lista"></button>
+      <div class="brand">
+        <span class="logo">%</span>
+        <div><h1>Ofertas Firmat</h1><span class="sub">Firmat · Santa Fe</span></div>
+        <button class="acct" id="acctBtn">Soy comercio</button>
+      </div>
+      <div id="demoBanner" class="banner" hidden>Modo demostración: los locales son de ejemplo. Falta conectar la base de datos (ver README).</div>
+    </div>
+
+    <!-- Vista: explorar ofertas -->
+    <section id="viewExplore" class="view">
+      <div class="filters">
+        <label class="search" for="q">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="Buscar comercio u oferta" autocomplete="off">
+        </label>
+        <div class="chips" id="chips" role="toolbar" aria-label="Rubros"></div>
+        <div class="row">
+          <label for="minDisc">Mínimo <b id="minVal">0%</b><input id="minDisc" type="range" min="0" max="70" step="5" value="0"></label>
+          <select id="sort" aria-label="Ordenar">
+            <option value="dist">Más cerca</option>
+            <option value="disc">Mayor descuento</option>
+            <option value="end">Vencen antes</option>
+          </select>
+        </div>
+      </div>
+      <p class="count" id="count"></p>
+      <ul class="list" id="list"></ul>
+    </section>
+
+    <!-- Vista: ingresar / crear cuenta -->
+    <section id="viewAuth" class="view pad" hidden>
+      <button class="back" data-go="explore">← Volver a las ofertas</button>
+      <h2 id="authTitle">Ingresá a tu comercio</h2>
+      <p class="muted" id="authLead">Cargá tus ofertas y aparecé en el mapa de Firmat. Es gratis.</p>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabIn" aria-selected="true">Ingresar</button>
+        <button role="tab" id="tabUp" aria-selected="false">Crear cuenta</button>
+      </div>
+      <form id="authForm" class="form">
+        <label>Email<input id="aEmail" type="email" required autocomplete="email"></label>
+        <label>Contraseña<input id="aPass" type="password" required minlength="6" autocomplete="current-password"></label>
+        <button class="btn primary" type="submit" id="aSubmit">Ingresar</button>
+        <button class="link" type="button" id="aForgot">Olvidé mi contraseña</button>
+        <p class="msg" id="aMsg" hidden></p>
+      </form>
+    </section>
+
+    <!-- Vista: nueva contraseña (desde el mail de recuperación) -->
+    <section id="viewReset" class="view pad" hidden>
+      <h2>Nueva contraseña</h2>
+      <form id="resetForm" class="form">
+        <label>Contraseña nueva<input id="rPass" type="password" required minlength="6" autocomplete="new-password"></label>
+        <button class="btn primary" type="submit">Guardar contraseña</button>
+        <p class="msg" id="rMsg" hidden></p>
+      </form>
+    </section>
+
+    <!-- Vista: mi comercio -->
+    <section id="viewMine" class="view pad" hidden>
+      <button class="back" data-go="explore">← Ver el mapa de ofertas</button>
+      <div class="mine-head">
+        <div><h2 id="mineTitle">Tu comercio</h2><p class="muted" id="mineEmail"></p></div>
+        <button class="btn ghost small" id="logout">Salir</button>
+      </div>
+
+      <form id="bizForm" class="form card-form">
+        <h3 id="bizFormTitle">Datos del comercio</h3>
+        <label>Nombre del comercio<input id="bNombre" required maxlength="60" placeholder="Ej: Panadería La Espiga"></label>
+        <div class="two">
+          <label>Rubro<select id="bRubro"></select></label>
+          <label>Teléfono / WhatsApp<input id="bTel" maxlength="30" inputmode="tel" placeholder="3465 …"></label>
+        </div>
+        <label>Dirección<input id="bDir" required maxlength="80" placeholder="Calle y número"></label>
+        <label>Horario<input id="bHorario" maxlength="40" placeholder="Lun a sáb 8 a 20"></label>
+        <label>Link de Google Maps (opcional)<input id="bMaps" type="url" maxlength="300" placeholder="https://maps.app.goo.gl/…"></label>
+        <div class="loc">
+          <span id="locState" class="pill">Sin ubicación en el mapa</span>
+          <button type="button" class="btn ghost small" id="pickBtn">Marcar en el mapa</button>
+          <button type="button" class="btn ghost small" id="hereBtn">Estoy en el local</button>
+        </div>
+        <button class="btn primary" type="submit" id="bizSave">Guardar comercio</button>
+        <p class="msg" id="bMsg" hidden></p>
+      </form>
+
+      <div id="offersBox" hidden>
+        <form id="offerForm" class="form card-form">
+          <h3 id="offerFormTitle">Nueva oferta</h3>
+          <label>Oferta<input id="oTitulo" required maxlength="90" placeholder="Ej: 2x1 en medialunas los domingos"></label>
+          <div class="two">
+            <label>Descuento (%)<input id="oDesc" type="number" min="1" max="100" required value="20"></label>
+            <label>Válida hasta<input id="oVence" type="date" required></label>
+          </div>
+          <div class="acts">
+            <button type="button" class="btn ghost" id="oCancel" hidden>Cancelar</button>
+            <button class="btn primary" type="submit" id="oSave">Publicar oferta</button>
+          </div>
+          <p class="msg" id="oMsg" hidden></p>
+        </form>
+        <h3 class="mt">Tus ofertas</h3>
+        <ul class="mylist" id="myOffers"></ul>
+      </div>
+    </section>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map" aria-label="Mapa de comercios con ofertas"></div>
+    <div class="hint" id="hint" hidden>Tocá el mapa donde está tu local</div>
+    <div class="fabs">
+      <button class="fab" id="locate">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        Mi ubicación
+      </button>
+    </div>
+    <div class="detail" id="detail" hidden></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
