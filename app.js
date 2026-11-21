@@ -53,8 +53,8 @@
   function daysLeft(iso) { return Math.ceil((new Date(iso + "T23:59:59") - Date.now()) / 86400000); }
   function fmtEnd(iso) {
     var n = daysLeft(iso);
-    if (n < 0) return "Vencida"; if (n === 0) return "Vence hoy"; if (n === 1) return "Vence mañana";
-    if (n <= 6) return "Quedan " + n + " días";
+    if (n < 0) return "Vencida"; if (n === 0) return "¡Vence hoy!"; if (n === 1) return "¡Vence mañana!";
+    if (n <= 6) return "¡Quedan " + n + " días!";
     return "Hasta el " + new Date(iso + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "short" });
   }
   function best(p) { return p.ofertas.reduce(function (a, o) { return o.descuento > a.descuento ? o : a; }, p.ofertas[0]); }
@@ -169,7 +169,7 @@
     });
 
     var nOf = list.reduce(function (a, p) { return a + p.ofertas.length; }, 0);
-    $("#count").textContent = list.length ? nOf + (nOf === 1 ? " oferta" : " ofertas") + " en " + list.length + (list.length === 1 ? " comercio" : " comercios") : "";
+    $("#count").textContent = list.length ? nOf + (nOf === 1 ? " oferta" : " ofertas") + " en " + list.length + (list.length === 1 ? " comercio" : " comercios") + " ★" : "";
     $("#list").innerHTML = list.length ? list.map(function (p) {
       var b = best(p), n = daysLeft(soonest(p)), extra = p.ofertas.length - 1;
       return '<li class="item' + (st.sel === p.id ? " active" : "") + '" data-id="' + esc(p.id) + '" tabindex="0">' +
@@ -208,10 +208,18 @@
       '<a class="btn ghost" target="_blank" rel="noopener" href="' + esc(view) + '">Ver en Google Maps</a>' +
       (tel ? '<a class="btn ghost" href="tel:' + esc(tel) + '">Llamar</a>' : "") + "</div></div>";
     $("#detail").hidden = false;
+    // En el celular se achica el panel para que la ficha entre entera
+    if (window.matchMedia("(max-width:760px)").matches && !$("#panel").classList.contains("collapsed")) {
+      $("#panel").classList.add("collapsed"); st.autoCollapsed = true; setTimeout(function () { map.invalidateSize(); }, 50);
+    }
     $("#dClose").onclick = closeDetail;
     var li = document.querySelector('.item[data-id="' + id + '"]'); if (li) li.scrollIntoView({ block: "nearest" });
   }
-  function closeDetail() { st.sel = null; $("#detail").hidden = true; render(); }
+  function closeDetail() {
+    var was = st.sel; st.sel = null; $("#detail").hidden = true;
+    if (st.autoCollapsed) { st.autoCollapsed = false; $("#panel").classList.remove("collapsed"); setTimeout(function () { map.invalidateSize(); }, 50); }
+    if (was) render();
+  }
 
   // ---------- vistas ----------
   function show(view) {
