@@ -80,10 +80,25 @@
   // ---------- mapa ----------
   var map = L.map("map", { zoomControl: false }).setView(CENTRO, CFG.zoom || 15);
   L.control.zoom({ position: "topleft" }).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  // Calles: CARTO; si no carga, se pasa solo a OpenStreetMap
+  var tiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
     maxZoom: 20, subdomains: "abcd",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
+  var tileOk = false, tileErr = 0, usingOsm = false;
+  function useOsm() {
+    if (usingOsm) return; usingOsm = true;
+    map.removeLayer(tiles);
+    tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+  }
+  tiles.on("tileload", function () { tileOk = true; });
+  tiles.on("tileerror", function () { if (!tileOk && ++tileErr >= 3) useOsm(); });
+  setTimeout(function () { if (!tileOk) useOsm(); }, 6000);
+  // El mapa se mide de nuevo cuando cambia el tamaño de la pantalla (celular girado, panel abierto)
+  window.addEventListener("resize", function () { map.invalidateSize(); });
+  setTimeout(function () { map.invalidateSize(); }, 300);
   var markers = {}, meMarker = null, pickMarker = null;
 
   function tagIcon(p) {
@@ -166,6 +181,9 @@
       ? "No hay ofertas con estos filtros.<br>Probá otro rubro o bajá el descuento mínimo."
       : "Todavía no hay ofertas cargadas.<br>¿Tenés un comercio? Tocá <b>Soy comercio</b> y cargá la primera.") + "</li>";
     if (st.sel && !ids[st.sel]) closeDetail();
+    var note = $("#mapNote");
+    note.hidden = st.places.length > 0;
+    note.innerHTML = "<b>Todavía no hay ofertas en el mapa.</b> ¿Tenés un comercio en Firmat? Tocá <b>Soy comercio</b> y cargá la primera.";
   }
 
   function select(id, fly) {
