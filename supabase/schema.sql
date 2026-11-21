@@ -36,16 +36,16 @@ drop policy if exists "comercios: crear"  on public.comercios;
 drop policy if exists "comercios: editar" on public.comercios;
 drop policy if exists "comercios: borrar" on public.comercios;
 create policy "comercios: ver"    on public.comercios for select using (true);
-create policy "comercios: crear"  on public.comercios for insert to authenticated with check (auth.uid() = id);
-create policy "comercios: editar" on public.comercios for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
-create policy "comercios: borrar" on public.comercios for delete to authenticated using (auth.uid() = id);
+create policy "comercios: crear"  on public.comercios for insert to authenticated with check ((select auth.uid()) = id);
+create policy "comercios: editar" on public.comercios for update to authenticated using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+create policy "comercios: borrar" on public.comercios for delete to authenticated using ((select auth.uid()) = id);
 
 drop policy if exists "ofertas: ver"    on public.ofertas;
 drop policy if exists "ofertas: crear"  on public.ofertas;
 drop policy if exists "ofertas: editar" on public.ofertas;
 drop policy if exists "ofertas: borrar" on public.ofertas;
 -- El público ve solo ofertas vigentes; el dueño ve también las vencidas.
-create policy "ofertas: ver"    on public.ofertas for select using (vence >= current_date or auth.uid() = comercio_id);
-create policy "ofertas: crear"  on public.ofertas for insert to authenticated with check (auth.uid() = comercio_id);
-create policy "ofertas: editar" on public.ofertas for update to authenticated using (auth.uid() = comercio_id) with check (auth.uid() = comercio_id);
-create policy "ofertas: borrar" on public.ofertas for delete to authenticated using (auth.uid() = comercio_id);
+create policy "ofertas: ver"    on public.ofertas for select using (vence >= current_date or (select auth.uid()) = comercio_id);
+create policy "ofertas: crear"  on public.ofertas for insert to authenticated with check ((select auth.uid()) = comercio_id);
+create policy "ofertas: editar" on public.ofertas for update to authenticated using ((select auth.uid()) = comercio_id) with check ((select auth.uid()) = comercio_id);
+create policy "ofertas: borrar" on public.ofertas for delete to authenticated using ((select auth.uid()) = comercio_id);
