@@ -12,7 +12,7 @@ Sin la base de datos conectada, la app funciona en **modo demostración** con co
 
 | Parte | Herramienta | Costo |
 |---|---|---|
-| Mapa | [Leaflet](https://leafletjs.com) + calles de OpenStreetMap (CARTO) | Gratis |
+| Mapa | [Leaflet](https://leafletjs.com) + calles de OpenStreetMap | Gratis |
 | Cuentas y base de datos | [Supabase](https://supabase.com) | Plan gratis |
 | Hosting | [Vercel](https://vercel.com) | Plan gratis |
 

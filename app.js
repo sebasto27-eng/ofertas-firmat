@@ -80,22 +80,22 @@
   // ---------- mapa ----------
   var map = L.map("map", { zoomControl: false }).setView(CENTRO, CFG.zoom || 15);
   L.control.zoom({ position: "topleft" }).addTo(map);
-  // Calles: CARTO; si no carga, se pasa solo a OpenStreetMap
-  var tiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    maxZoom: 20, subdomains: "abcd",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // Calles: OpenStreetMap (gratis, sin clave); si no carga, se pasa solo al mapa de calles de Esri
+  var tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(map);
-  var tileOk = false, tileErr = 0, usingOsm = false;
-  function useOsm() {
-    if (usingOsm) return; usingOsm = true;
+  var tileOk = false, tileErr = 0, usingBackup = false;
+  function useBackup() {
+    if (usingBackup) return; usingBackup = true;
     map.removeLayer(tiles);
-    tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    tiles = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19, attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap"
     }).addTo(map);
   }
   tiles.on("tileload", function () { tileOk = true; });
-  tiles.on("tileerror", function () { if (!tileOk && ++tileErr >= 3) useOsm(); });
-  setTimeout(function () { if (!tileOk) useOsm(); }, 6000);
+  tiles.on("tileerror", function () { if (!tileOk && ++tileErr >= 3) useBackup(); });
+  setTimeout(function () { if (!tileOk) useBackup(); }, 6000);
   // El mapa se mide de nuevo cuando cambia el tamaño de la pantalla (celular girado, panel abierto)
   window.addEventListener("resize", function () { map.invalidateSize(); });
   setTimeout(function () { map.invalidateSize(); }, 300);
