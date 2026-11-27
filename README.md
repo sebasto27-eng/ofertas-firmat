@@ -6,6 +6,11 @@ Mapa de descuentos y promociones de los comercios de Firmat, Santa Fe.
 - **Comercios:** crean su cuenta con email y contraseña, marcan su local en el mapa y cargan, editan o borran sus ofertas. Cada comercio solo puede tocar lo suyo.
 - Las ofertas vencidas desaparecen solas del mapa.
 
+**Es una app instalable (PWA):** desde el celular se agrega a la pantalla de inicio, abre a pantalla completa, guarda las calles ya vistas y las últimas ofertas para usarse con poca señal, y cada oferta se comparte con un enlace que abre directo ese comercio (`/?c=<id>`).
+
+- **Android (Chrome):** aparece el botón **Instalar** en la app, o menú ⋮ → *Instalar app*.
+- **iPhone (Safari):** botón Compartir → *Agregar a inicio*.
+
 Sin la base de datos conectada, la app funciona en **modo demostración** con comercios de ejemplo.
 
 ## Cómo está hecha
@@ -22,8 +27,10 @@ Es un sitio estático (HTML, CSS y JavaScript), sin paso de compilación.
 index.html          la página
 styles.css          diseño
 app.js              lógica (mapa, filtros, cuentas, ofertas)
-config.js           datos de conexión a Supabase  ← completar
-supabase/schema.sql tablas y reglas de seguridad   ← pegar en Supabase
+config.js           datos de conexión a Supabase
+manifest.webmanifest, sw.js, icons/   app instalable y uso sin conexión
+vendor/             Leaflet y supabase-js (incluidos, sin CDN)
+supabase/schema.sql tablas y reglas de seguridad
 ```
 
 ## Paso 1: crear la base de datos en Supabase

@@ -122,8 +122,15 @@
     return sb.from("comercios")
       .select("id,nombre,rubro,direccion,telefono,horario,maps_url,lat,lng,ofertas(id,titulo,descuento,vence,creado)")
       .then(function (r) {
-        if (r.error) { toast(traducir(r.error)); return; }
-        st.places = (r.data || []).map(function (c) {
+        var rows = r.data;
+        if (r.error) {
+          // Sin conexión: se usan las últimas ofertas guardadas en el celular
+          try { rows = JSON.parse(localStorage.getItem("ofertas.ultimas") || "null"); } catch (e) { rows = null; }
+          if (!rows) { toast(traducir(r.error)); return; }
+        } else {
+          try { localStorage.setItem("ofertas.ultimas", JSON.stringify(rows)); } catch (e) {}
+        }
+        st.places = (rows || []).map(function (c) {
           c.ofertas = (c.ofertas || []).filter(function (o) { return daysLeft(o.vence) >= 0; });
           return c;
         }).filter(function (c) { return c.ofertas.length; });
@@ -206,19 +213,23 @@
       (p.telefono ? "<dt>Teléfono</dt><dd>" + esc(p.telefono) + "</dd>" : "") + "</dl>" +
       '<div class="acts"><a class="btn primary" target="_blank" rel="noopener" href="' + esc(route) + '">Cómo llegar</a>' +
       '<a class="btn ghost" target="_blank" rel="noopener" href="' + esc(view) + '">Ver en Google Maps</a>' +
-      (tel ? '<a class="btn ghost" href="tel:' + esc(tel) + '">Llamar</a>' : "") + "</div></div>";
+      (tel ? '<a class="btn ghost" href="tel:' + esc(tel) + '">Llamar</a>' : "") + "</div>" +
+      '<div class="acts"><button class="btn ghost" id="dShare">Compartir</button>' +
+      '<a class="btn ghost" target="_blank" rel="noopener" id="dWa" href="https://wa.me/?text=' + encodeURIComponent(shareText(p) + " " + shareUrl(p)) + '">WhatsApp</a></div></div>';
     $("#detail").hidden = false;
     // En el celular se achica el panel para que la ficha entre entera
     if (window.matchMedia("(max-width:760px)").matches && !$("#panel").classList.contains("collapsed")) {
       $("#panel").classList.add("collapsed"); st.autoCollapsed = true; setTimeout(function () { map.invalidateSize(); }, 50);
     }
     $("#dClose").onclick = closeDetail;
+    $("#dShare").onclick = function () { share(p); };
+    syncTab();
     var li = document.querySelector('.item[data-id="' + id + '"]'); if (li) li.scrollIntoView({ block: "nearest" });
   }
   function closeDetail() {
     var was = st.sel; st.sel = null; $("#detail").hidden = true;
     if (st.autoCollapsed) { st.autoCollapsed = false; $("#panel").classList.remove("collapsed"); setTimeout(function () { map.invalidateSize(); }, 50); }
-    if (was) render();
+    if (was) { render(); syncTab(); }
   }
 
   // ---------- vistas ----------
@@ -229,6 +240,7 @@
     if (view !== "mine") { setPicking(false); if (pickMarker) { pickMarker.remove(); pickMarker = null; } }
     if (view === "mine") renderMine();
     closeDetail();
+    st.view = view; syncTab();
   }
   function updateAcct() {
     $("#acctBtn").textContent = st.session ? "Mi comercio" : "Soy comercio";
@@ -473,15 +485,89 @@
   $("#sort").onchange = function (e) { st.sort = e.target.value; render(); };
   $("#list").addEventListener("click", function (e) { var li = e.target.closest(".item"); if (li) select(li.dataset.id); });
   $("#list").addEventListener("keydown", function (e) { if (e.key === "Enter") { var li = e.target.closest(".item"); if (li) select(li.dataset.id); } });
-  $("#grip").onclick = function () { $("#panel").classList.toggle("collapsed"); };
+  $("#grip").onclick = function () { $("#panel").classList.toggle("collapsed"); syncTab(); setTimeout(function () { map.invalidateSize(); }, 50); };
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") { setPicking(false); closeDetail(); } });
   $("#bRubro").innerHTML = Object.keys(RUBROS).filter(function (k) { return k !== "todo"; })
     .map(function (k) { return '<option value="' + k + '">' + RUBROS[k] + "</option>"; }).join("");
 
+  // ---------- barra inferior (celular) ----------
+  function isMobile() { return window.matchMedia("(max-width:760px)").matches; }
+  function syncTab() {
+    var v = st.view || "explore";
+    var tab = v === "explore" ? ($("#panel").classList.contains("collapsed") ? "mapa" : "lista") : "comercio";
+    document.querySelectorAll("#tabbar button").forEach(function (b) {
+      if (b.dataset.tab === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+  }
+  function setTab(tab) {
+    if (tab === "comercio") { show(st.session ? "mine" : "auth"); return; }
+    show("explore");
+    if (tab === "mapa") $("#panel").classList.add("collapsed");
+    syncTab();
+    setTimeout(function () { map.invalidateSize(); }, 50);
+  }
+  $("#tabbar").onclick = function (e) { var b = e.target.closest("button"); if (b) setTab(b.dataset.tab); };
+
+  // ---------- compartir ----------
+  function shareUrl(p) { return location.origin + location.pathname + "?c=" + encodeURIComponent(p.id); }
+  function shareText(p) { var b = best(p); return "-" + b.descuento + "% en " + p.nombre + ": " + b.titulo + " (Ofertas Firmat)"; }
+  function share(p) {
+    var url = shareUrl(p), text = shareText(p);
+    if (navigator.share) { navigator.share({ title: p.nombre, text: text, url: url }).catch(function () {}); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(text + " " + url).then(function () { toast("Enlace copiado. Pegalo donde quieras."); }, function () { toast(url); });
+    else toast(url);
+  }
+
+  // ---------- app instalable ----------
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  var installEvt = null;
+  function installDismissed() { try { return localStorage.getItem("ofertas.installDismissed") === "1"; } catch (e) { return false; } }
+  function hideInstall(remember) {
+    $("#installBox").hidden = true;
+    if (remember) { try { localStorage.setItem("ofertas.installDismissed", "1"); } catch (e) {} }
+  }
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+  }
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault(); installEvt = e;
+    if (!standalone && !installDismissed()) $("#installBox").hidden = false;
+  });
+  window.addEventListener("appinstalled", function () { hideInstall(true); toast("¡Listo! Ya tenés Ofertas Firmat en tu inicio."); });
+  if (!standalone && !installDismissed() && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    $("#installTxt").textContent = "Instalala en tu iPhone: tocá Compartir y después «Agregar a inicio».";
+    $("#installBtn").hidden = true;
+    $("#installBox").hidden = false;
+  }
+  $("#installBtn").onclick = function () {
+    if (!installEvt) return;
+    installEvt.prompt();
+    installEvt.userChoice.then(function () { installEvt = null; hideInstall(false); });
+  };
+  $("#installClose").onclick = function () { hideInstall(true); };
+
+  // ---------- sin conexión ----------
+  function net() { $("#offlineBanner").hidden = navigator.onLine; }
+  window.addEventListener("online", function () { net(); loadPlaces(); });
+  window.addEventListener("offline", net);
+  net();
+
   // ---------- inicio ----------
   renderChips();
   $("#demoBanner").hidden = !DEMO;
-  loadPlaces();
+  var params = new URLSearchParams(location.search);
+  if (isMobile()) $("#panel").classList.add("collapsed");
+  syncTab();
+  loadPlaces().then(function () {
+    var c = params.get("c");
+    if (c) { if (st.places.some(function (x) { return x.id === c; })) select(c); else toast("Esa oferta ya no está disponible."); }
+    st.loadedAt = Date.now();
+  });
+  if (params.get("ir") === "comercio") setTimeout(function () { setTab("comercio"); }, 300);
+  // Al volver a abrir la app, se actualizan las ofertas
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - (st.loadedAt || 0) > 120000) { st.loadedAt = Date.now(); loadPlaces(); }
+  });
   if (sb) {
     sb.auth.onAuthStateChange(function (event, session) {
       var was = !!st.session;

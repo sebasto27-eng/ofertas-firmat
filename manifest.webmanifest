@@ -1,0 +1,22 @@
+{
+  "name": "Ofertas Firmat",
+  "short_name": "Ofertas",
+  "description": "Descuentos y promociones de los comercios de Firmat, Santa Fe, en un mapa.",
+  "lang": "es-AR",
+  "id": "/",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fffbea",
+  "theme_color": "#e3262e",
+  "categories": ["shopping", "lifestyle", "navigation"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Cargar una oferta", "short_name": "Mi comercio", "url": "/?ir=comercio", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
